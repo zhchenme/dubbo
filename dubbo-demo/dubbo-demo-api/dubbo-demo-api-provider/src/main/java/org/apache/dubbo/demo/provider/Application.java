@@ -37,6 +37,7 @@ public class Application {
         return args.length > 0 && "classic".equalsIgnoreCase(args[0]);
     }
 
+
     private static void startWithBootstrap() {
         ServiceConfig<DemoServiceImpl> service = new ServiceConfig<>();
         service.setInterface(DemoService.class);
