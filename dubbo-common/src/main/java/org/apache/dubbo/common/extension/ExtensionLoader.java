@@ -123,6 +123,7 @@ public class ExtensionLoader<T> {
      * @since 2.7.7
      */
     private static LoadingStrategy[] loadLoadingStrategies() {
+        // 通过 jdk 的 SPI 加载所有 LoadingStrategy 的配置信息
         return stream(load(LoadingStrategy.class).spliterator(), false)
                 .sorted()
                 .toArray(LoadingStrategy[]::new);
@@ -142,6 +143,7 @@ public class ExtensionLoader<T> {
 
     private ExtensionLoader(Class<?> type) {
         this.type = type;
+        // 在初始化 ExtensionLoader 时，会获取 org.apache.dubbo.common.extension.factory.AdaptiveExtensionFactory 下的 SPI 配置
         objectFactory = (type == ExtensionFactory.class ? null : ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension());
     }
 
@@ -154,9 +156,11 @@ public class ExtensionLoader<T> {
         if (type == null) {
             throw new IllegalArgumentException("Extension type == null");
         }
+        // 扩展对象必须是接口
         if (!type.isInterface()) {
             throw new IllegalArgumentException("Extension type (" + type + ") is not an interface!");
         }
+        // 扩展必须用 @SPI 注解修饰
         if (!withExtensionAnnotation(type)) {
             throw new IllegalArgumentException("Extension type (" + type +
                     ") is not an extension, because it is NOT annotated with @" + SPI.class.getSimpleName() + "!");
@@ -164,6 +168,7 @@ public class ExtensionLoader<T> {
 
         ExtensionLoader<T> loader = (ExtensionLoader<T>) EXTENSION_LOADERS.get(type);
         if (loader == null) {
+            // 为什么没事多进行一次 rehash
             EXTENSION_LOADERS.putIfAbsent(type, new ExtensionLoader<T>(type));
             loader = (ExtensionLoader<T>) EXTENSION_LOADERS.get(type);
         }
@@ -420,12 +425,14 @@ public class ExtensionLoader<T> {
         if ("true".equals(name)) {
             return getDefaultExtension();
         }
+        // 尝试从缓存中获取
         final Holder<Object> holder = getOrCreateHolder(name);
         Object instance = holder.get();
         if (instance == null) {
             synchronized (holder) {
                 instance = holder.get();
                 if (instance == null) {
+                    // 创建扩展对象
                     instance = createExtension(name, wrap);
                     holder.set(instance);
                 }
@@ -625,12 +632,14 @@ public class ExtensionLoader<T> {
 
     @SuppressWarnings("unchecked")
     private T createExtension(String name, boolean wrap) {
+        // 根据 name 获取扩展对象 class
         Class<?> clazz = getExtensionClasses().get(name);
         if (clazz == null) {
             throw findException(name);
         }
         try {
             T instance = (T) EXTENSION_INSTANCES.get(clazz);
+            // 创建实例
             if (instance == null) {
                 EXTENSION_INSTANCES.putIfAbsent(clazz, clazz.newInstance());
                 instance = (T) EXTENSION_INSTANCES.get(clazz);
@@ -677,6 +686,7 @@ public class ExtensionLoader<T> {
         }
 
         try {
+            // 获取目标扩展类的所有方法
             for (Method method : instance.getClass().getMethods()) {
                 if (!isSetter(method)) {
                     continue;
@@ -687,15 +697,19 @@ public class ExtensionLoader<T> {
                 if (method.getAnnotation(DisableInject.class) != null) {
                     continue;
                 }
+                // 获取方法依赖对象类型
                 Class<?> pt = method.getParameterTypes()[0];
                 if (ReflectUtils.isPrimitives(pt)) {
                     continue;
                 }
 
                 try {
+                    // 获取方法依赖的对象名
                     String property = getSetterProperty(method);
+                    // objectFactory 的类型通过 dubbo SPI 配置：org.apache.dubbo.common.extension.factory.AdaptiveExtensionFactory
                     Object object = objectFactory.getExtension(pt, property);
                     if (object != null) {
+                        // 为 setter 方法注入依赖对象
                         method.invoke(instance, object);
                     }
                 } catch (Exception e) {
@@ -757,6 +771,7 @@ public class ExtensionLoader<T> {
             synchronized (cachedClasses) {
                 classes = cachedClasses.get();
                 if (classes == null) {
+                    // 加载配置的扩展信息
                     classes = loadExtensionClasses();
                     cachedClasses.set(classes);
                 }
@@ -772,7 +787,12 @@ public class ExtensionLoader<T> {
         cacheDefaultExtensionName();
 
         Map<String, Class<?>> extensionClasses = new HashMap<>();
-
+        /** strategies 通过 jdk 的 SPI 加载，SPI 配置如下：
+         *
+         * @see org.apache.dubbo.common.extension.DubboInternalLoadingStrategy
+         * @see org.apache.dubbo.common.extension.DubboLoadingStrategy
+         * @see org.apache.dubbo.common.extension.ServicesLoadingStrategy
+         */
         for (LoadingStrategy strategy : strategies) {
             loadDirectory(extensionClasses, strategy.directory(), type.getName(), strategy.preferExtensionClassLoader(), strategy.overridden(), strategy.excludedPackages());
             loadDirectory(extensionClasses, strategy.directory(), type.getName().replace("org.apache", "com.alibaba"), strategy.preferExtensionClassLoader(), strategy.overridden(), strategy.excludedPackages());
@@ -809,6 +829,7 @@ public class ExtensionLoader<T> {
 
     private void loadDirectory(Map<String, Class<?>> extensionClasses, String dir, String type,
                                boolean extensionLoaderClassLoaderFirst, boolean overridden, String... excludedPackages) {
+        // 获取 SPI 配置的文件名
         String fileName = dir + type;
         try {
             Enumeration<java.net.URL> urls = null;
@@ -913,6 +934,7 @@ public class ExtensionLoader<T> {
                 cacheActivateClass(clazz, names[0]);
                 for (String n : names) {
                     cacheName(clazz, n);
+                    // 将扩展信息保存在 cachedClasses 中
                     saveInExtensionClass(extensionClasses, clazz, n, overridden);
                 }
             }
