@@ -266,6 +266,7 @@ public class ExtensionLoader<T> {
         List<T> activateExtensions = new ArrayList<>();
         List<String> names = values == null ? new ArrayList<>(0) : asList(values);
         if (!names.contains(REMOVE_VALUE_PREFIX + DEFAULT_KEY)) {
+            // 加载 SPI 扩展配置信息
             getExtensionClasses();
             for (Map.Entry<String, Object> entry : cachedActivates.entrySet()) {
                 String name = entry.getKey();
@@ -273,6 +274,7 @@ public class ExtensionLoader<T> {
 
                 String[] activateGroup, activateValue;
 
+                // 获取 @Activate 注解中的 group 与 value
                 if (activate instanceof Activate) {
                     activateGroup = ((Activate) activate).group();
                     activateValue = ((Activate) activate).value();
@@ -282,16 +284,20 @@ public class ExtensionLoader<T> {
                 } else {
                     continue;
                 }
+                // 判断组是否匹配
                 if (isMatchGroup(group, activateGroup)
                         && !names.contains(name)
                         && !names.contains(REMOVE_VALUE_PREFIX + name)
                         && isActive(activateValue, url)) {
+                    // 组匹配，通过 dubbo SPI 获取 name 对应的配置对象
                     activateExtensions.add(getExtension(name));
                 }
             }
+            // 符合条件的组排序
             activateExtensions.sort(ActivateComparator.COMPARATOR);
         }
         List<T> loadedExtensions = new ArrayList<>();
+        // names 用来附加额外的扩展（不需要匹配）
         for (int i = 0; i < names.size(); i++) {
             String name = names.get(i);
             if (!name.startsWith(REMOVE_VALUE_PREFIX)
@@ -784,6 +790,7 @@ public class ExtensionLoader<T> {
      * synchronized in getExtensionClasses
      */
     private Map<String, Class<?>> loadExtensionClasses() {
+        // 如果接口被 SPI 修饰，则缓存 @SPI value 到 cachedDefaultName 中
         cacheDefaultExtensionName();
 
         Map<String, Class<?>> extensionClasses = new HashMap<>();
@@ -877,6 +884,7 @@ public class ExtensionLoader<T> {
                     if (line.length() > 0) {
                         try {
                             String name = null;
+                            // 通过 = 截取 key 与 value
                             int i = line.indexOf('=');
                             if (i > 0) {
                                 name = line.substring(0, i).trim();
@@ -916,12 +924,14 @@ public class ExtensionLoader<T> {
                     type + ", class line: " + clazz.getName() + "), class "
                     + clazz.getName() + " is not subtype of interface.");
         }
+        // 如果接口被 @Adaptive 修饰，则缓存扩展 class 到 cachedAdaptiveClass 中
         if (clazz.isAnnotationPresent(Adaptive.class)) {
             cacheAdaptiveClass(clazz, overridden);
         } else if (isWrapperClass(clazz)) {
             cacheWrapperClass(clazz);
         } else {
             clazz.getConstructor();
+            // PS：SPI 配置不一定是键值对格式，也可以指配置 value，只配置 value 时会生成默认的 key，findAnnotationName
             if (StringUtils.isEmpty(name)) {
                 name = findAnnotationName(clazz);
                 if (name.length() == 0) {
@@ -1045,17 +1055,22 @@ public class ExtensionLoader<T> {
     }
 
     private Class<?> getAdaptiveExtensionClass() {
+        // 加载 SPI 扩展信息
         getExtensionClasses();
         if (cachedAdaptiveClass != null) {
             return cachedAdaptiveClass;
         }
+        // 当接口没有用 @Adaptive 修饰时会走到这里，需要手动创建代理类信息
         return cachedAdaptiveClass = createAdaptiveExtensionClass();
     }
 
     private Class<?> createAdaptiveExtensionClass() {
+        // 构造代码类字符串
         String code = new AdaptiveClassCodeGenerator(type, cachedDefaultName).generate();
         ClassLoader classLoader = findClassLoader();
+        // 获取 Compiler 的自适应扩展
         org.apache.dubbo.common.compiler.Compiler compiler = ExtensionLoader.getExtensionLoader(org.apache.dubbo.common.compiler.Compiler.class).getAdaptiveExtension();
+        // 编译返回 class 实例
         return compiler.compile(code, classLoader);
     }
 

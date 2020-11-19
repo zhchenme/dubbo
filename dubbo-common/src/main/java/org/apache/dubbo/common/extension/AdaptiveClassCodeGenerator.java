@@ -85,9 +85,17 @@ public class AdaptiveClassCodeGenerator {
 
     /**
      * generate and return class code
+     *
+     * 生成类信息，samples：
+     * package com.alibaba.dubbo.rpc;
+     * import com.alibaba.dubbo.common.extension.ExtensionLoader;
+     * public class Protocol$Adaptive implements com.alibaba.dubbo.rpc.Protocol {
+     *     // 省略方法代码
+     * }
      */
     public String generate() {
         // no need to generate adaptive class since there's no adaptive method found.
+        // 所有方法中必须有一个方法用 @Adaptive 注解修饰
         if (!hasAdaptiveMethod()) {
             throw new IllegalStateException("No adaptive method exist on extension " + type.getName() + ", refuse to create the adaptive class!");
         }
@@ -203,23 +211,27 @@ public class AdaptiveClassCodeGenerator {
         if (adaptiveAnnotation == null) {
             return generateUnsupported(method);
         } else {
+            // 确定 URL 参数位置
             int urlTypeIndex = getUrlTypeIndex(method);
 
             // found parameter in URL type
             if (urlTypeIndex != -1) {
                 // Null Point check
+                // URL 参数判空
                 code.append(generateUrlNullCheck(urlTypeIndex));
             } else {
                 // did not find parameter in URL type
                 code.append(generateUrlAssignmentIndirectly(method));
             }
 
+            // 获取 @Adaptive 值，如果 @Adaptive 没有设置，则按照规则生成一个默认的 value
             String[] value = getMethodAdaptiveValue(adaptiveAnnotation);
 
             boolean hasInvocation = hasInvocationArgument(method);
 
             code.append(generateInvocationArgumentNullCheck(method));
 
+            // 构造 String extName = url.getParameter(%s, %s); 最后那个参数是 SPI 注解中的 value 值（如果不为空）
             code.append(generateExtNameAssignment(value, hasInvocation));
             // check extName == null?
             code.append(generateExtNameNullCheck(value));
