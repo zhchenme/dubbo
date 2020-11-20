@@ -694,6 +694,7 @@ public class ExtensionLoader<T> {
         try {
             // 获取目标扩展类的所有方法
             for (Method method : instance.getClass().getMethods()) {
+                // 过滤非 setter 方法
                 if (!isSetter(method)) {
                     continue;
                 }
@@ -712,10 +713,10 @@ public class ExtensionLoader<T> {
                 try {
                     // 获取方法依赖的对象名
                     String property = getSetterProperty(method);
-                    // objectFactory 的类型通过 dubbo SPI 配置：org.apache.dubbo.common.extension.factory.AdaptiveExtensionFactory
+                    // objectFactory 的类型通过 dubbo SPI 配置 org.apache.dubbo.common.extension.ExtensionFactory，AdaptiveExtensionFactory（被 @Adaptive 注解修饰）
                     Object object = objectFactory.getExtension(pt, property);
                     if (object != null) {
-                        // 为 setter 方法注入依赖对象
+                        // 调用注入方法
                         method.invoke(instance, object);
                     }
                 } catch (Exception e) {
@@ -924,10 +925,11 @@ public class ExtensionLoader<T> {
                     type + ", class line: " + clazz.getName() + "), class "
                     + clazz.getName() + " is not subtype of interface.");
         }
-        // 如果接口被 @Adaptive 修饰，则缓存扩展 class 到 cachedAdaptiveClass 中
+        // 如果接口被 @Adaptive 修饰，则缓存扩展 class 到 cachedAdaptiveClass 中，切扩展信息不会保存在 cachedClasses 缓存中，意味着 @Adaptive 修饰类类型扩展不能依赖注入了
         if (clazz.isAnnotationPresent(Adaptive.class)) {
             cacheAdaptiveClass(clazz, overridden);
         } else if (isWrapperClass(clazz)) {
+            // 如果配置类包含 type 类型的构造函数，把配置类信息保存到 cachedWrapperClasses
             cacheWrapperClass(clazz);
         } else {
             clazz.getConstructor();
