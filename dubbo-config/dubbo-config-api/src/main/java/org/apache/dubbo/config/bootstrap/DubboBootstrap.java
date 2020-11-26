@@ -526,6 +526,7 @@ public class DubboBootstrap extends GenericEventListener {
 
         ApplicationModel.initFrameworkExts();
 
+        // dubbo 配置刷新
         startConfigCenter();
 
         loadRemoteConfigs();
@@ -611,6 +612,7 @@ public class DubboBootstrap extends GenericEventListener {
         // check Config Center
         if (CollectionUtils.isEmpty(configCenters)) {
             ConfigCenterConfig configCenterConfig = new ConfigCenterConfig();
+            // 刷新 ConfigCenterConfig 配置
             configCenterConfig.refresh();
             if (configCenterConfig.isValid()) {
                 configManager.addConfigCenter(configCenterConfig);
@@ -630,6 +632,7 @@ public class DubboBootstrap extends GenericEventListener {
             }
             environment.setDynamicConfiguration(compositeDynamicConfiguration);
         }
+        // 刷新所有配置
         configManager.refreshAll();
     }
 
@@ -1074,6 +1077,7 @@ public class DubboBootstrap extends GenericEventListener {
     }
 
     private void exportServices() {
+        // 遍历 dubbo service 列表
         configManager.getServices().forEach(sc -> {
             // TODO, compatible with ServiceConfig.export()
             ServiceConfig serviceConfig = (ServiceConfig) sc;

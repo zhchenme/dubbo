@@ -101,6 +101,7 @@ public class CompositeConfiguration implements Configuration {
     @Override
     public Object getProperty(String key, Object defaultValue) {
         Object value = null;
+        // 根据 prefix 拼接 key
         if (StringUtils.isNotEmpty(prefix)) {
             if (StringUtils.isNotEmpty(id)) {
                 value = getInternalProperty(prefix + id + "." + key);

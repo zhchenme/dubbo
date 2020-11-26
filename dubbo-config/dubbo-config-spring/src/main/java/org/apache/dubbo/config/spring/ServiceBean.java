@@ -35,6 +35,8 @@ import org.springframework.context.ApplicationEventPublisherAware;
 /**
  * ServiceFactoryBean
  *
+ * <dubbo:service interface="" ref="" version=""/> 标签的对象载体
+ *
  * @export
  */
 public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean, DisposableBean,
@@ -64,6 +66,7 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
+        // 将 ApplicationContext 存放在一个 set 集合中
         SpringExtensionFactory.addApplicationContext(applicationContext);
     }
 
@@ -85,6 +88,7 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
     public void afterPropertiesSet() throws Exception {
         if (StringUtils.isEmpty(getPath())) {
             if (StringUtils.isNotEmpty(getInterface())) {
+                // 初始化 path 为接口的全限定名
                 setPath(getInterface());
             }
         }

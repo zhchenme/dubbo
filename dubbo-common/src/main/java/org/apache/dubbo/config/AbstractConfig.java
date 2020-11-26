@@ -104,6 +104,7 @@ public abstract class AbstractConfig implements Serializable {
                 break;
             }
         }
+        // class org.apache.dubbo.config.ConfigCenterConfig -> config-center
         return StringUtils.camelToSplitName(tag, "-");
     }
 
@@ -256,14 +257,17 @@ public abstract class AbstractConfig implements Serializable {
         String propertyName = setter.getName().substring("set".length());
         Method getter = null;
         try {
+            // 获取 getter 方法
             getter = clazz.getMethod("get" + propertyName);
         } catch (NoSuchMethodException e) {
             getter = clazz.getMethod("is" + propertyName);
         }
+        // getter 方法如果用 @Parameter 注解修饰，则获取注解中的 key
         Parameter parameter = getter.getAnnotation(Parameter.class);
         if (parameter != null && StringUtils.isNotEmpty(parameter.key()) && parameter.useKeyAsProperty()) {
             propertyName = parameter.key();
         } else {
+            // 截取字段值
             propertyName = propertyName.substring(0, 1).toLowerCase() + propertyName.substring(1);
         }
         return propertyName;
@@ -456,6 +460,7 @@ public abstract class AbstractConfig implements Serializable {
         return StringUtils.isNotEmpty(prefix) ? prefix : (CommonConstants.DUBBO + "." + getTagName(this.getClass()));
     }
 
+    // 设置获取 key 的前缀
     public void setPrefix(String prefix) {
         this.prefix = prefix;
     }
@@ -467,8 +472,10 @@ public abstract class AbstractConfig implements Serializable {
             // loop methods, get override value and set the new value back to method
             Method[] methods = getClass().getMethods();
             for (Method method : methods) {
+                // 获取所有配置的 setter 方法，通过反射赋值
                 if (MethodUtils.isSetter(method)) {
                     try {
+                         // 最终调用的是 CompositeConfiguration.getProperty 方法获取配置，该方法会遍历 Configuration 下的子类型列表，逐个获取
                         String value = StringUtils.trim(compositeConfiguration.getString(extractPropertyName(getClass(), method)));
                         // isTypeMatch() is called to avoid duplicate and incorrect update, for example, we have two 'setGeneric' methods in ReferenceConfig.
                         if (StringUtils.isNotEmpty(value) && ClassUtils.isTypeMatch(method.getParameterTypes()[0], value)) {

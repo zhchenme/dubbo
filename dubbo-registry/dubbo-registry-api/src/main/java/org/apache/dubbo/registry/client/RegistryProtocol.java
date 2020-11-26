@@ -178,6 +178,7 @@ public class RegistryProtocol implements Protocol {
     }
 
     private void register(URL registryUrl, URL registeredProviderUrl) {
+        // 获取 Registry，包含 zkClient 等信息
         Registry registry = registryFactory.getRegistry(registryUrl);
         registry.register(registeredProviderUrl);
     }
@@ -192,8 +193,11 @@ public class RegistryProtocol implements Protocol {
 
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
+        // 获取注册中心 URL，以 zookeeper 注册中心为例，得到的示例 URL 如下：
+        // zookeeper://127.0.0.1:2181/com.alibaba.dubbo.registry.RegistryService?application=demo-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F172.17.48.52%3A20880%2Fcom.alibaba.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26application%3Ddemo-provider
         URL registryUrl = getRegistryUrl(originInvoker);
         // url to export locally
+        // 本地注册 URL
         URL providerUrl = getProviderUrl(originInvoker);
 
         // Subscribe the override data
@@ -209,12 +213,17 @@ public class RegistryProtocol implements Protocol {
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
         // url to registry
+        /// 获取已注册的服务提供者 URL，比如：
+        // dubbo://10.1.15.170:20880/com.xxx.item.client.service.ICategoryService?application=item-center&deprecated=false&dubbo=2.0.2&loadbalance=leastactive&release=2.7.7&timeout=10000&timestamp=1606381857935&version=1.0.0-alipay-health
         final Registry registry = getRegistry(originInvoker);
+        // 服务暴露的 URL 信息
         final URL registeredProviderUrl = getUrlToRegistry(providerUrl, registryUrl);
 
         // decide if we need to delay publish
+        // 获取 register 参数
         boolean register = providerUrl.getParameter(REGISTER_KEY, true);
         if (register) {
+            // 向注册中心注册服务
             register(registryUrl, registeredProviderUrl);
         }
 

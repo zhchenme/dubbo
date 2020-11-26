@@ -201,6 +201,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             return;
         }
 
+        // 是否延迟暴露服务
         if (shouldDelay()) {
             DELAY_EXPORT_EXECUTOR.schedule(this::doExport, getDelay(), TimeUnit.MILLISECONDS);
         } else {
@@ -310,6 +311,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
     private void doExportUrls() {
         ServiceRepository repository = ApplicationModel.getServiceRepository();
         ServiceDescriptor serviceDescriptor = repository.registerService(getInterfaceClass());
+        // 将该服务提供者注册到 ServiceRepository（还包括消费者）
         repository.registerProvider(
                 getUniqueServiceName(),
                 ref,
@@ -318,9 +320,12 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 serviceMetadata
         );
 
+        // 加载注册中心信息（要暴露的服务地址，zk 等）
         List<URL> registryURLs = ConfigValidationUtils.loadRegistries(this, true);
 
+        // 通过多协议暴露服务
         for (ProtocolConfig protocolConfig : protocols) {
+            // pathKey = path:group:version
             String pathKey = URL.buildKey(getContextPath(protocolConfig)
                     .map(p -> p + "/" + path)
                     .orElse(path), group, version);
@@ -338,17 +343,24 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             name = DUBBO;
         }
 
+        // 存储版本、时间戳、方法名以及各种配置对象信息
         Map<String, String> map = new HashMap<String, String>();
         map.put(SIDE_KEY, PROVIDER_SIDE);
 
         ServiceConfig.appendRuntimeParameters(map);
+        // <dubbo:metrics />
         AbstractConfig.appendParameters(map, getMetrics());
+        // <dubbo:application name="" owner="ZBD" qosEnable="false" hostname="zhangchendeMacBook-Pro.local" />
         AbstractConfig.appendParameters(map, getApplication());
+        // <dubbo:module />
         AbstractConfig.appendParameters(map, getModule());
         // remove 'default.' prefix for configs from ProviderConfig
         // appendParameters(map, provider, Constants.DEFAULT_KEY);
+        // <dubbo:provider threads="200" />
         AbstractConfig.appendParameters(map, provider);
+        // <dubbo:protocol name="dubbo" accesslog="true" />
         AbstractConfig.appendParameters(map, protocolConfig);
+        // <dubbo:service beanName="" />
         AbstractConfig.appendParameters(map, this);
         MetadataReportConfig metadataReportConfig = getMetadataReportConfig();
         if (metadataReportConfig != null && metadataReportConfig.isValid()) {
@@ -418,12 +430,13 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             if (revision != null && revision.length() > 0) {
                 map.put(REVISION_KEY, revision);
             }
-
+            // 为接口生成包裹类 Wrapper，Wrapper 中包含了接口的详细信息，比如接口方法名数组，字段信息等
             String[] methods = Wrapper.getWrapper(interfaceClass).getMethodNames();
             if (methods.length == 0) {
                 logger.warn("No method found in service interface " + interfaceClass.getName());
                 map.put(METHODS_KEY, ANY_VALUE);
             } else {
+                // 多个 method 用 ',' 隔开
                 map.put(METHODS_KEY, StringUtils.join(new HashSet<String>(Arrays.asList(methods)), ","));
             }
         }
@@ -446,6 +459,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         serviceMetadata.getAttachments().putAll(map);
 
         // export service
+        // 获取服务暴露机器的 host 与 port（默认 20880）
         String host = findConfigedHosts(protocolConfig, registryURLs, map);
         Integer port = findConfigedPorts(protocolConfig, name, map);
         URL url = new URL(name, host, port, getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), map);
@@ -457,16 +471,20 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                     .getExtension(url.getProtocol()).getConfigurator(url).configure(url);
         }
 
+        // 获取服务导出 scope
         String scope = url.getParameter(SCOPE_KEY);
         // don't export when none is configured
         if (!SCOPE_NONE.equalsIgnoreCase(scope)) {
 
             // export to local if the config is not remote (export to remote only when config is remote)
+            // 本地服务导出
             if (!SCOPE_REMOTE.equalsIgnoreCase(scope)) {
                 exportLocal(url);
             }
             // export to remote if the config is not local (export to local only when config is local)
+            // 远程服务导出
             if (!SCOPE_LOCAL.equalsIgnoreCase(scope)) {
+                // 存在注册中心
                 if (CollectionUtils.isNotEmpty(registryURLs)) {
                     for (URL registryURL : registryURLs) {
                         //if protocol is only injvm ,not register
@@ -499,6 +517,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                         exporters.add(exporter);
                     }
                 } else {
+                    // 不存在注册中心
                     if (logger.isInfoEnabled()) {
                         logger.info("Export dubbo service " + interfaceClass.getName() + " to url " + url);
                     }
@@ -512,6 +531,16 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 MetadataUtils.publishServiceDefinition(url);
             }
         }
+        /**
+         * 将服务暴露信息，封装成 URL，map 中的内容将作为 URL 的查询字符串：
+         *
+         * url samples：dubbo://10.1.15.170:20880/com.xxx.service.IConsultOrderService
+         * ?accesslog=true&anyhost=true&application=cloud-hospital&bind.ip=10.1.15.170&bind.port=20880&default=true&deprecated=false&dubbo=2.0.2
+         * &dynamic=true&generic=false&interface=com.yunhu.cloud.hospital.medial.client.service.IConsultOrderService
+         * &methods=updateConsultOrder,createConsultOrder,getByConsultOrderId,endConsultOrder,entranceConsultOrder,cancelConsultOrder,queryConsultOrderByPage
+         * &owner=mogu
+         * &pid=59831&qos.enable=false&release=2.7.7&revision=1.0.0&side=provider&timestamp=1606122524738&version=1.0.0
+         */
         this.urls.add(url);
     }
 
@@ -521,10 +550,12 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
      */
     private void exportLocal(URL url) {
         URL local = URLBuilder.from(url)
+                // 设置本地服务导出协议为 injvm
                 .setProtocol(LOCAL_PROTOCOL)
                 .setHost(LOCALHOST_VALUE)
                 .setPort(0)
                 .build();
+        // 创建 Invoker，并导出服务，这里的 protocol 会在运行时调用 InjvmProtocol 的 export 方法
         Exporter<?> exporter = PROTOCOL.export(
                 PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, local));
         exporters.add(exporter);
