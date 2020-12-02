@@ -1059,10 +1059,11 @@ public class ExtensionLoader<T> {
     private Class<?> getAdaptiveExtensionClass() {
         // 加载 SPI 扩展信息
         getExtensionClasses();
+        // 当实现类用 @Adaptive 修饰时，会缓存到 cachedAdaptiveClass 中，直接用该实现类，因此自适应扩展实现类注解优先级最高
         if (cachedAdaptiveClass != null) {
             return cachedAdaptiveClass;
         }
-        // 当接口没有用 @Adaptive 修饰时会走到这里，需要手动创建代理类信息
+        // 当实现类没有用 @Adaptive 修饰时会走到这里，需要手动创建代理类信息
         return cachedAdaptiveClass = createAdaptiveExtensionClass();
     }
 

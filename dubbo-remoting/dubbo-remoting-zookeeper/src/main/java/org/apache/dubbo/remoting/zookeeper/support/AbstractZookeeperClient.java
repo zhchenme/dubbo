@@ -70,6 +70,7 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
 
     @Override
     public void create(String path, boolean ephemeral) {
+        // path = /dubbo/org.apache.dubbo.demo.GreetingService/providers/dubbo...
         if (!ephemeral) {
             if(persistentExistNodePath.contains(path)){
                 return;
@@ -80,9 +81,11 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
             }
         }
         int i = path.lastIndexOf('/');
+        // dubbo/接口全限定名/providers/ 目录下为临时节点
         if (i > 0) {
             create(path.substring(0, i), false);
         }
+        // 判断创建临时节点还是持久化绩点
         if (ephemeral) {
             createEphemeral(path);
         } else {

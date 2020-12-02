@@ -107,6 +107,7 @@ public class AdaptiveClassCodeGenerator {
 
         Method[] methods = type.getMethods();
         for (Method method : methods) {
+            // 主要信息都在这里
             code.append(generateMethod(method));
         }
         code.append("}");
@@ -232,8 +233,10 @@ public class AdaptiveClassCodeGenerator {
             code.append(generateInvocationArgumentNullCheck(method));
 
             // 构造 String extName = url.getParameter(%s, %s); 最后那个参数是 SPI 注解中的 value 值（如果不为空）
+            // 如果 URL 参数 key 与 @Adaptive 的 key 值相同，则获取 key 对应 value 对应的实现类，不同则取 @SPI 注解 value 对应的实现类
             code.append(generateExtNameAssignment(value, hasInvocation));
             // check extName == null?
+            // 如果  url.getParameter(%s, %s); 为 null 则抛出异常
             code.append(generateExtNameNullCheck(value));
 
             code.append(generateExtensionAssignment());

@@ -343,7 +343,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             name = DUBBO;
         }
 
-        // 存储版本、时间戳、方法名以及各种配置对象信息
+        // 存储版本、时间戳、方法名以及各种配置对象信息，map 中的内容将作为 URL 的查询字符串
         Map<String, String> map = new HashMap<String, String>();
         map.put(SIDE_KEY, PROVIDER_SIDE);
 
@@ -378,6 +378,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 }
                 List<ArgumentConfig> arguments = method.getArguments();
                 if (CollectionUtils.isNotEmpty(arguments)) {
+                    // 检测 <dubbo:method> 标签中的配置信息，并放到 map 中
                     for (ArgumentConfig argument : arguments) {
                         // convert argument type
                         if (argument.getType() != null && argument.getType().length() > 0) {
@@ -556,8 +557,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
                 .setPort(0)
                 .build();
         // 创建 Invoker，并导出服务，这里的 protocol 会在运行时调用 InjvmProtocol 的 export 方法
-        Exporter<?> exporter = PROTOCOL.export(
-                PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, local));
+        Invoker invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, local);
+        Exporter<?> exporter = PROTOCOL.export(invoker);
         exporters.add(exporter);
         logger.info("Export dubbo service " + interfaceClass.getName() + " to local registry url : " + local);
     }
