@@ -107,6 +107,7 @@ public class ReferenceBean<T> extends ReferenceConfig<T> implements FactoryBean,
         prepareDubboConfigBeans();
 
         // lazy init by default.
+        // <dubbo:reference> 标签 init 属性可以配置在 Spring 容器启动时就引用服务
         if (init == null) {
             init = false;
         }

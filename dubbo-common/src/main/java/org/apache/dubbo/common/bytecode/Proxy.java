@@ -95,6 +95,7 @@ public abstract class Proxy {
                 throw new IllegalArgumentException(ics[i] + " is not visible from class loader");
             }
 
+            // 拼接接口全限定名，用 ; 隔开，com.alibaba.dubbo.rpc.service.EchoService;com.xxx.xxxService;org.apache.dubbo.rpc.service.Destroyable;
             sb.append(itf).append(';');
         }
 
@@ -153,6 +154,7 @@ public abstract class Proxy {
                 }
                 ccp.addInterface(ics[i]);
 
+                // 获取接口方法列表
                 for (Method method : ics[i].getMethods()) {
                     String desc = ReflectUtils.getDesc(method);
                     if (worked.contains(desc) || Modifier.isStatic(method.getModifiers())) {
